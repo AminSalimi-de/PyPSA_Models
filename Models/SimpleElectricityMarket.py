@@ -1,4 +1,5 @@
 import pypsa
+import matplotlib.pyplot as plt
 
 #   Parameters
 #       Euro/MWh
@@ -46,7 +47,7 @@ n.add(
     bus="MZ",
     carrier="hydro",
     p_nom=1200,  # MW
-    mariginal_cost=0,
+    marginal_cost=0,
 )
 for tech, capacity in power_plants["SA"].items():
     n.add(
@@ -55,7 +56,7 @@ for tech, capacity in power_plants["SA"].items():
         bus="SA",
         carrier=tech,
         efficiency=efficiency.get(tech, 1),
-        mariginal_cost=fuel_cost.get(tech, 0)/efficiency.get(tech, 1),
+        marginal_cost=fuel_cost.get(tech, 0)/efficiency.get(tech, 1),
         p_nom=capacity
     )
 print(n.generators)
@@ -89,5 +90,30 @@ n.add(
 )
 print(n.lines)
 
-#       Plot Network:
-n.plot(bus_sizes=1, margin=1)
+#       Optimize:
+n.optimize(solver_name="highs")
+
+#       Results:
+print(n.generators_t.p)
+print(50*"-")
+print(n.lines_t.p0)
+print(n.lines_t.p1)
+print(50*"-")
+print(n.buses_t.marginal_price)
+
+#       Plot:
+n.plot(
+    margin=1,
+    bus_sizes=2,
+    bus_colors="orange",
+    bus_alpha=0.7,
+    color_geomap=True,
+    line_colors="orchid",
+    line_widths=3,
+    title="Test",
+); plt.show()
+
+s = n.generators_t.p.loc["now"].groupby([n.generators.bus, n.generators.carrier]).sum()
+print(s)
+
+n.plot(margin=1, bus_sizes=s / 1e4); plt.show()
