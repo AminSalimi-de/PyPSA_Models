@@ -120,3 +120,7 @@ n.add(
 
 n.optimize()
 print(n.generators_t.p)
+
+#       Export:
+#n.export_to_netcdf("pypsa_ex1.nc")
+n.export_to_csv_folder("pypsa_ex1")
