@@ -112,7 +112,7 @@ print(n.generators)
 # n.generators_t.p_max_pu.loc["2015-03"].plot()
 # plt.show()
 
-#       Optimize
+#       Optimize & Results
 n.optimize()
 
 print(f"Objective = {n.objective/1.0e9}")  # Billion Euros
@@ -122,7 +122,51 @@ emissions = (
     n.generators_t.p
     / n.generators.efficiency
     * n.generators.carrier.map(n.carriers.co2_emissions)
-) # t/h
+)  # t/h
 
-total_emissions = n.snapshot_weightings.generators @ emissions.sum(axis=1)/1e6 # Mt
+total_emissions = n.snapshot_weightings.generators @ emissions.sum(axis=1) / 1e6  # Mt
 print(f"Total emissions={total_emissions}")
+
+#       Storage Units:
+n.add(
+    "StorageUnit",
+    "battery storage",
+    bus="electricity",
+    carrier="battery storage",
+    max_hours=6,
+    capital_cost=costs.at["battery inverter", "capital_cost"]
+    + 6 * costs.at["battery storage", "capital_cost"],
+    efficieny_storage=costs.at["battery inverter", "efficiency"],
+    efficieny_dispatch=costs.at["battery inverter", "efficiency"],
+    cyclic_state_of_charge=True,
+    p_nom_extendable=True,
+)
+
+H2_str_max_hours = 168
+H2_str_capital_cost = (
+    costs.at["electrolysis", "capital_cost"]
+    + costs.at["fuel cell", "capital_cost"]
+    + H2_str_max_hours * costs.at["hydrogen storage underground", "capital_cost"]
+)
+
+n.add(
+    "StorageUnit",
+    "hydrogen storage underground",
+    bus="electricity",
+    carrier="hydrogen storage underground",
+    max_hours=H2_str_max_hours,
+    capital_cost=H2_str_capital_cost,
+    efficiency_storage=costs.at["electrolysis", "efficiency"],
+    efficiency_dispatch=costs.at["fuel cell", "efficiency"],
+    p_nom_extendable=True,
+    cyclic_state_of_charge=True,
+)
+
+#       Optimize & Results
+n.optimize()
+
+print(f"Objective = {n.objective/1.0e9}")  # Billion Euros
+print(f"Optimized Cpacities:")  # MW
+print(n.generators.p_nom_opt)
+print(n.storage_units.p_nom_opt)
+
