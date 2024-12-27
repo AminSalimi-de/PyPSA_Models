@@ -20,6 +20,13 @@ def CalculateTotalEmissions(net):  # Mt
     return total_emissions
 
 
+def GetSystemCost(net):
+    totalSystemCost = pd.concat([net.statistics.capex(), net.statistics.opex()], axis=1)
+    return (
+        totalSystemCost.sum(axis=1).droplevel(0).div(1e9).round(2)
+    )  # billion euros/year
+
+
 def PrintCEMResults(net):
     print("--- Optimization Results ---")
     print(f"Objective = {net.objective/1.0e9}")  # Billion Euros
@@ -27,6 +34,8 @@ def PrintCEMResults(net):
     print(n.generators.p_nom_opt)
     print(n.storage_units.p_nom_opt)
     print(f"Total emissions = {CalculateTotalEmissions(net)}")
+    print("System Costs:")
+    print(GetSystemCost(n))
     print(40 * "-")
 
 
@@ -188,3 +197,6 @@ n.add(
 n.optimize()
 
 PrintCEMResults(n)
+
+GetSystemCost(n).plot.pie()
+#plt.show()
