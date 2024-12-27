@@ -5,12 +5,32 @@ import matplotlib.pyplot as plt
 plt.style.use("bmh")
 
 
-#       Read and Prepare Data
-#       Cost Data
+#       Helper Functions:
 def annuity(r, n):
     return r / (1.0 - 1.0 / (1.0 + r) ** n)
 
 
+def CalculateTotalEmissions(net):  # Mt
+    emissions = (
+        net.generators_t.p
+        / net.generators.efficiency
+        * net.generators.carrier.map(net.carriers.co2_emissions)
+    )  # t/h
+    total_emissions = net.snapshot_weightings.generators @ emissions.sum(axis=1) / 1e6
+    return total_emissions
+
+
+def PrintCEMResults(net):
+    print("--- Optimization Results ---")
+    print(f"Objective = {net.objective/1.0e9}")  # Billion Euros
+    print(f"Optimized Cpacities:")  # MW
+    print(n.generators.p_nom_opt)
+    print(n.storage_units.p_nom_opt)
+    print(f"Total emissions = {CalculateTotalEmissions(net)}")
+    print(40 * "-")
+
+
+#       Read and Prepare Data
 year = 2030
 url = f"https://raw.githubusercontent.com/PyPSA/technology-data/master/outputs/costs_{year}.csv"
 costs = pd.read_csv(url, index_col=[0, 1])
@@ -112,20 +132,9 @@ print(n.generators)
 # n.generators_t.p_max_pu.loc["2015-03"].plot()
 # plt.show()
 
-#       Optimize & Results
 n.optimize()
 
-print(f"Objective = {n.objective/1.0e9}")  # Billion Euros
-print(f"Optimized Cpacities: {n.generators.p_nom_opt}")  # MW
-
-emissions = (
-    n.generators_t.p
-    / n.generators.efficiency
-    * n.generators.carrier.map(n.carriers.co2_emissions)
-)  # t/h
-
-total_emissions = n.snapshot_weightings.generators @ emissions.sum(axis=1) / 1e6  # Mt
-print(f"Total emissions={total_emissions}")
+PrintCEMResults(n)
 
 #       Storage Units:
 n.add(
@@ -162,11 +171,20 @@ n.add(
     cyclic_state_of_charge=True,
 )
 
-#       Optimize & Results
 n.optimize()
 
-print(f"Objective = {n.objective/1.0e9}")  # Billion Euros
-print(f"Optimized Cpacities:")  # MW
-print(n.generators.p_nom_opt)
-print(n.storage_units.p_nom_opt)
+PrintCEMResults(n)
 
+
+#       Emission Limit:
+n.add(
+    "GlobalConstraint",
+    "CO2Limit",
+    carrier_attribute="co2_emissions",
+    sense="<=",
+    constant=0,
+)
+
+n.optimize()
+
+PrintCEMResults(n)
